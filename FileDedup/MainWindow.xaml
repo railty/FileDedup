@@ -1,0 +1,65 @@
+﻿<Window x:Class="WpfApp3.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:WpfApp3"
+        mc:Ignorable="d"
+        Title="MainWindow" Height="350" Width="856.659">
+
+    <Window.CommandBindings>
+        <CommandBinding Command="Refresh" CanExecute="Refresh_CanExecute" Executed="Refresh_Executed" />
+        <CommandBinding Command="New" />
+        <CommandBinding Command="Open" />
+        <CommandBinding Command="Save" />
+        <CommandBinding Command="{x:Static local:MainWindow.GenerateCommand}"  CanExecute="Generate_CanExecute" Executed="Generate_Executed"/>
+    </Window.CommandBindings>
+
+    <DockPanel>
+        <Menu DockPanel.Dock="Top">
+            <MenuItem Header="_File">
+                <MenuItem Header="_New" />
+                <MenuItem Header="_Open" />
+                <MenuItem Header="_Save" />
+                <Separator />
+                <MenuItem Header="_Exit" />
+            </MenuItem>
+            <MenuItem Header="_Refresh" Command="Refresh" />
+        </Menu>
+        <ToolBarTray DockPanel.Dock="Top">
+            <ToolBar>
+                <Button Command="New" >
+                    <Image Height="16" Source="res\check.png" Stretch="Fill" Width="16"/>
+                </Button>
+                <Button Command="Open" Content="Open" />
+                <Button Command="Save" Content="Save" />
+            </ToolBar>
+            <ToolBar>
+                <Button Command="Cut" Content="Cut" />
+                <Button Command="Copy" Content="Copy" />
+                <Button Command="Paste" Content="Paste" />
+            </ToolBar>
+            <ToolBar>
+                <Button Command="Refresh" >
+                    <Image Height="16" Source="res\refresh.png" Stretch="Fill" Width="16"/>
+                </Button>
+                <Button Command="{x:Static local:MainWindow.GenerateCommand}" >
+                    <Image Height="16" Source="res\generate.png" Stretch="Fill" Width="16"/>
+                </Button>
+            </ToolBar>
+        </ToolBarTray>
+        <StatusBar DockPanel.Dock="Bottom">
+            <StatusBarItem>
+                <TextBlock Name="lblCursorPosition" />
+            </StatusBarItem>
+        </StatusBar>
+        <ScrollViewer DockPanel.Dock="Bottom" BorderBrush="#FFC13232" Height="92">
+        <TextBox AcceptsReturn="True" x:Name="cmds" Text="11111"  />
+        </ScrollViewer>
+        <ScrollViewer Name="groups" BorderBrush="#FFC13232" CanContentScroll="True">
+
+
+        </ScrollViewer>
+    </DockPanel>
+
+</Window>
