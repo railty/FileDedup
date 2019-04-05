@@ -15,10 +15,10 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Markup;
 using System.Data.SQLite;
+using System.Security.Cryptography;
 
 
-
-namespace WpfApp3
+namespace FDD
 {
     /// <summary>
     /// Interaction logic for MainWindow.xaml
@@ -36,19 +36,82 @@ namespace WpfApp3
 
         private void Scan_Executed(object sender, ExecutedRoutedEventArgs e)
         {
-            TreePath("c:\\sites\\");
+            var dialog = new System.Windows.Forms.FolderBrowserDialog();
 
-            //var dialog = new System.Windows.Forms.FolderBrowserDialog();
+            if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+            {
+                string path = dialog.SelectedPath;
 
-            //if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
-            //{
-            //    TreePath(dialog.SelectedPath);
-           // }
+                dict.Clear();
+                SQLiteCommand sqlite_cmd = conn.CreateCommand();
+                string pattern = path.ToLower().Replace(@"\\", @"\").Replace(@"d:\", "d:");
+
+                sqlite_cmd.CommandText = $"select name, size, md5 from files where lower(name) like '{pattern}%' order by name;";
+                SQLiteDataReader sqlite_datareader = sqlite_cmd.ExecuteReader();
+                while (sqlite_datareader.Read())
+                {
+                    string name = sqlite_datareader.GetString(0);
+                    long size = sqlite_datareader.GetInt64(1);
+                    string strHash = sqlite_datareader.GetString(2);
+
+                    dict.Add(name, new object[] { size, strHash });
+                }
+
+
+                long sz = 0;
+                string md5 = "";
+                //cal_folder(path, ref sz, ref md5);
+            }
         }
 
-        private void TreePath(string path)
+        Dictionary<string, object[]> dict = new Dictionary<string, object[]>();
+
+
+        int BlockSize = 16 * 512;
+
+        private string md5hex(byte[] hash)
+        {
+            StringBuilder sBuilder = new StringBuilder();
+            for (int i = 0; i < hash.Length; i++)
+            {
+                sBuilder.Append(hash[i].ToString("x2"));
+            }
+
+            // Return the hexadecimal string.
+            return sBuilder.ToString();
+        }
+        private string cal_file(string fname, ref long size, ref string strHash)
+        {
+	        MD5 md5 = new MD5CryptoServiceProvider();
+
+            FileStream fs = new FileStream(fname, FileMode.Open, FileAccess.Read);
+
+            byte[] dat = new byte[BlockSize];
+
+            int len = fs.Read(dat, 0, BlockSize);
+            md5.TransformBlock(dat, 0, len, dat, 0);
+            //string x = md5hex(md5.Hash);
+            int sz = 1;
+            size = new FileInfo(fname).Length;
+            while (sz * BlockSize < size)
+            {
+                fs.Seek(sz * BlockSize, SeekOrigin.Begin);
+                len = fs.Read(dat, 0, BlockSize);
+                md5.TransformBlock(dat, 0, len, dat, 0);
+                //x = md5hex(md5.Hash);
+                sz = sz * 2;
+            }
+            md5.TransformFinalBlock(dat, 0, 0);
+            byte[] hash = md5.Hash;
+            strHash = md5hex(hash);
+            return strHash;
+        }
+
+
+        private void cal_folder(string path, ref long size, ref string strHash)
         {
             var files = Directory.EnumerateFileSystemEntries(path, "*", SearchOption.TopDirectoryOnly);
+
 
             ArrayList names = new ArrayList();
             foreach (string file in files)
@@ -57,19 +120,39 @@ namespace WpfApp3
             }
             names.Sort();
 
+            MD5 md5 = new MD5CryptoServiceProvider();
             for (int i = 0; i < names.Count; i++)
             {
                 string p = (string) names[i];
                 FileAttributes attr = File.GetAttributes(p);
 
                 if (attr.HasFlag(FileAttributes.Directory))
-                    MessageBox.Show("Its a directory");
-                else
-                    MessageBox.Show("Its a file");
-            }
+                {
+                    string folder_md5 = "";
+                    long folder_size = 0;
 
-    
+                    cal_folder(p, ref folder_size, ref folder_md5);
+                    size = size + folder_size;
+                    byte[] folder_md5_bytes = Encoding.ASCII.GetBytes(folder_md5);
+                    md5.TransformBlock(folder_md5_bytes, 0, folder_md5_bytes.Length, folder_md5_bytes, 0);
+                }
+
+                else
+                {
+                    string file_md5 = "";
+                    long file_size = 0;
+                    cal_file(p, ref file_size, ref file_md5);
+
+                    size = size + file_size;
+                    byte[] file_bytes = Encoding.ASCII.GetBytes(file_md5);
+                    md5.TransformBlock(file_bytes, 0, file_bytes.Length, file_bytes, 0);
+                }
+            }
+            byte[] bytes = new byte[0];
+            md5.TransformFinalBlock(bytes, 0, 0);
+            strHash = md5hex(md5.Hash);
         }
+
         private void Generate_CanExecute(object sender, CanExecuteRoutedEventArgs e)
         {
             e.CanExecute = true;
@@ -157,10 +240,6 @@ namespace WpfApp3
         {
             ArrayList groups = new ArrayList();
 
-            SQLiteConnection conn;
-
-            conn = new SQLiteConnection("Data Source=c:\\temp\\sqlite.db; Version = 3; ");
-            conn.Open();
             SQLiteDataReader sqlite_datareader;
             SQLiteCommand sqlite_cmd;
             sqlite_cmd = conn.CreateCommand();
@@ -207,9 +286,20 @@ namespace WpfApp3
             for (int i = 0; i < names.Count; i++) v[i] = (string)names[i];
             groups.Add(new object[4] { last_md5, last_size, names.ToArray(), states.ToArray() });
 
-            conn.Close();
-
             return groups;
+        }
+
+        SQLiteConnection conn;
+        private void Window_Loaded(object sender, RoutedEventArgs e)
+        {
+            conn = new SQLiteConnection("Data Source=c:\\temp\\sqlite.db; Version = 3; ");
+            conn.Open();
+
+        }
+
+        private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
+        {
+            conn.Close();
         }
     }
 }

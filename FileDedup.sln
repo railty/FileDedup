@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 VisualStudioVersion = 15.0.26228.76
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FileDeduper", "FileDedup\FileDeduper.csproj", "{A7ED7870-949D-4691-8482-D3445656C606}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FileDedup", "FileDedup\FileDedup.csproj", "{A7ED7870-949D-4691-8482-D3445656C606}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -18,5 +18,8 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {F6122ACB-B250-4B96-AB0A-B0338CCEFA90}
 	EndGlobalSection
 EndGlobal
