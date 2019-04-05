@@ -17,6 +17,7 @@ using System.Windows.Markup;
 using System.Data.SQLite;
 
 
+
 namespace WpfApp3
 {
     /// <summary>
@@ -27,6 +28,47 @@ namespace WpfApp3
         public MainWindow()
         {
             InitializeComponent();
+        }
+        private void Scan_CanExecute(object sender, CanExecuteRoutedEventArgs e)
+        {
+            e.CanExecute = true;
+        }
+
+        private void Scan_Executed(object sender, ExecutedRoutedEventArgs e)
+        {
+            TreePath("c:\\sites\\");
+
+            //var dialog = new System.Windows.Forms.FolderBrowserDialog();
+
+            //if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+            //{
+            //    TreePath(dialog.SelectedPath);
+           // }
+        }
+
+        private void TreePath(string path)
+        {
+            var files = Directory.EnumerateFileSystemEntries(path, "*", SearchOption.TopDirectoryOnly);
+
+            ArrayList names = new ArrayList();
+            foreach (string file in files)
+            {
+                names.Add(file);
+            }
+            names.Sort();
+
+            for (int i = 0; i < names.Count; i++)
+            {
+                string p = (string) names[i];
+                FileAttributes attr = File.GetAttributes(p);
+
+                if (attr.HasFlag(FileAttributes.Directory))
+                    MessageBox.Show("Its a directory");
+                else
+                    MessageBox.Show("Its a file");
+            }
+
+    
         }
         private void Generate_CanExecute(object sender, CanExecuteRoutedEventArgs e)
         {
@@ -77,6 +119,7 @@ namespace WpfApp3
 
 
         public static RoutedCommand GenerateCommand = new RoutedCommand();
+        public static RoutedCommand ScanCommand = new RoutedCommand();
 
 
         private void Refresh_CanExecute(object sender, CanExecuteRoutedEventArgs e)
