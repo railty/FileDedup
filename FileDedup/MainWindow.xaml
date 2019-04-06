@@ -54,7 +54,7 @@
         </ToolBarTray>
         <StatusBar DockPanel.Dock="Bottom">
             <StatusBarItem>
-                <TextBlock Name="lblCursorPosition" />
+                <TextBlock Name="lblMsg" />
             </StatusBarItem>
         </StatusBar>
         <ScrollViewer DockPanel.Dock="Bottom" BorderBrush="#FFC13232" Height="92">

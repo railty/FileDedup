@@ -16,7 +16,7 @@ using System.Windows.Navigation;
 using System.Windows.Markup;
 using System.Data.SQLite;
 using System.Security.Cryptography;
-
+using System.Diagnostics;
 
 namespace FDD
 {
@@ -34,38 +34,64 @@ namespace FDD
             e.CanExecute = true;
         }
 
+        private long get_mem()
+        {
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+
+            return Process.GetCurrentProcess().VirtualMemorySize64;
+        }
+
         private void Scan_Executed(object sender, ExecutedRoutedEventArgs e)
         {
-            var dialog = new System.Windows.Forms.FolderBrowserDialog();
+            /*
+            load_dict(@"d:Alex\");
+            string name1 = @"d:Alex\Documents\alex.mp4";
+            long size1 = 0;
+            int mtime1 = 0;
+            string strHash1 = "";
+            cal_file(name1, ref size1, ref mtime1, ref strHash1);
+            */
 
+            var dialog = new System.Windows.Forms.FolderBrowserDialog();
             if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
             {
                 string path = dialog.SelectedPath;
 
-                dict.Clear();
-                SQLiteCommand sqlite_cmd = conn.CreateCommand();
-                string pattern = path.ToLower().Replace(@"\\", @"\").Replace(@"d:\", "d:");
-
-                sqlite_cmd.CommandText = $"select name, size, md5 from files where lower(name) like '{pattern}%' order by name;";
-                SQLiteDataReader sqlite_datareader = sqlite_cmd.ExecuteReader();
-                while (sqlite_datareader.Read())
-                {
-                    string name = sqlite_datareader.GetString(0);
-                    long size = sqlite_datareader.GetInt64(1);
-                    string strHash = sqlite_datareader.GetString(2);
-
-                    dict.Add(name, new object[] { size, strHash });
-                }
-
-
+                long mem1 = get_mem();
+                DateTime t1 = DateTime.Now;
+                load_dict(path);
                 long sz = 0;
+                int mtime = 0;
                 string md5 = "";
-                //cal_folder(path, ref sz, ref md5);
+                cal_folder(path, ref sz, ref mtime, ref md5);
+                long mem2 = get_mem();
+                DateTime t2 = DateTime.Now;
+
+                this.lblMsg.Text = $"total time: {(t2 - t1).TotalSeconds} seconds, total mem = {mem1/1024.0/1024.0}M ---> {mem2 / 1024.0 / 1024.0}M";
             }
         }
 
         Dictionary<string, object[]> dict = new Dictionary<string, object[]>();
+        private void load_dict(string path)
+        {
+            dict.Clear();
+            SQLiteCommand sqlite_cmd = conn.CreateCommand();
+            string pattern = path.ToLower();
 
+            sqlite_cmd.CommandText = $"select name, size, mtime, md5 from files where lower(name) like '{pattern}%' order by name;";
+            SQLiteDataReader sqlite_datareader = sqlite_cmd.ExecuteReader();
+            while (sqlite_datareader.Read())
+            {
+                string name = sqlite_datareader.GetString(0);
+                long size = sqlite_datareader.GetInt64(1);
+                int mtime = sqlite_datareader.GetInt32(2);
+                string strHash = sqlite_datareader.GetString(3);
+
+                dict.Add(name, new object[] {size, mtime, strHash});
+            }
+        }
 
         int BlockSize = 16 * 512;
 
@@ -80,14 +106,33 @@ namespace FDD
             // Return the hexadecimal string.
             return sBuilder.ToString();
         }
-        private string cal_file(string fname, ref long size, ref string strHash)
+
+        DateTime epoch = new DateTime(1970, 1, 1);
+
+        /*
+         * read 0
+         * read 1 2 4 8 ... until over the size
+         * in the next version should do it reverse, ie
+         * seek to end, and reverse back the same way
+         */
+        private string cal_file(string fname, ref long size, ref int mtime, ref string strHash)
         {
+            FileInfo fi = new FileInfo(fname);
+            size = fi.Length;
+            mtime = (int)(fi.LastWriteTimeUtc - epoch).TotalSeconds;
+
+            if (dict.ContainsKey(fname))
+            {
+                if ((long)dict[fname][0] == size && (int)dict[fname][1] == mtime)
+                {
+                    strHash = (string)dict[fname][2];
+                    return strHash;
+                }
+            }
+
 	        MD5 md5 = new MD5CryptoServiceProvider();
-
             FileStream fs = new FileStream(fname, FileMode.Open, FileAccess.Read);
-
             byte[] dat = new byte[BlockSize];
-
             int len = fs.Read(dat, 0, BlockSize);
             md5.TransformBlock(dat, 0, len, dat, 0);
             //string x = md5hex(md5.Hash);
@@ -108,11 +153,9 @@ namespace FDD
         }
 
 
-        private void cal_folder(string path, ref long size, ref string strHash)
+        private void cal_folder(string path, ref long size, ref int mtime, ref string strHash)
         {
             var files = Directory.EnumerateFileSystemEntries(path, "*", SearchOption.TopDirectoryOnly);
-
-
             ArrayList names = new ArrayList();
             foreach (string file in files)
             {
@@ -130,8 +173,9 @@ namespace FDD
                 {
                     string folder_md5 = "";
                     long folder_size = 0;
+                    int folder_mtime = 0;
 
-                    cal_folder(p, ref folder_size, ref folder_md5);
+                    cal_folder(p, ref folder_size, ref folder_mtime, ref folder_md5);
                     size = size + folder_size;
                     byte[] folder_md5_bytes = Encoding.ASCII.GetBytes(folder_md5);
                     md5.TransformBlock(folder_md5_bytes, 0, folder_md5_bytes.Length, folder_md5_bytes, 0);
@@ -141,7 +185,8 @@ namespace FDD
                 {
                     string file_md5 = "";
                     long file_size = 0;
-                    cal_file(p, ref file_size, ref file_md5);
+                    int file_mtime = 0;
+                    cal_file(p, ref file_size, ref file_mtime, ref file_md5);
 
                     size = size + file_size;
                     byte[] file_bytes = Encoding.ASCII.GetBytes(file_md5);
