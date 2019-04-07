@@ -1,7 +1,7 @@
-﻿<Application x:Class="FDD.App"
+﻿<Application x:Class="fdd.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:local="clr-namespace:FDD"
+             xmlns:local="clr-namespace:fdd"
              StartupUri="MainWindow.xaml">
     <Application.Resources>
          
