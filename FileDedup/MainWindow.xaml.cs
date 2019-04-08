@@ -69,9 +69,10 @@ namespace fdd
                 int files_count = 0;
                 int files_cached_count = 0;
                 cal_folder(path, ref size, ref mtime, ref md5, ref folders_count, ref files_count, ref files_cached_count);
+
+                foreach (string fname in Dict.Keys) db.Delete(fname);
+
                 db.Commit();
-
-
                 long mem2 = get_mem();
                 DateTime t2 = DateTime.Now;
 
@@ -150,9 +151,9 @@ namespace fdd
             for (int i = 0; i < names.Count; i++)
             {
                 string p = (string)names[i];
-                FileAttributes attr = File.GetAttributes(p);
+                FileInfo fi = new FileInfo(p);
 
-                if (attr.HasFlag(FileAttributes.Directory))
+                if (fi.Attributes.HasFlag(FileAttributes.Directory))
                 {
                     string folder_md5 = "";
                     long folder_size = 0;
@@ -175,7 +176,6 @@ namespace fdd
                 }
                 else
                 {
-                    FileInfo fi = new FileInfo(p);
                     long file_size = fi.Length;
                     strHash = "";
                     int file_mtime = (int)(fi.LastWriteTimeUtc - epoch).TotalSeconds;
@@ -210,6 +210,8 @@ namespace fdd
             byte[] bytes = new byte[0];
             md5.TransformFinalBlock(bytes, 0, 0);
             strHash = md5hex(md5.Hash);
+
+            mtime = (int)((new FileInfo(path)).LastWriteTimeUtc - epoch).TotalSeconds;
 
             if (Dict.ContainsKey(path))
             {
