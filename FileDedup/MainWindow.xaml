@@ -14,6 +14,7 @@
         <CommandBinding Command="Save" />
         <CommandBinding Command="{x:Static local:MainWindow.GenerateCommand}"  CanExecute="Generate_CanExecute" Executed="Generate_Executed"/>
         <CommandBinding Command="{x:Static local:MainWindow.ScanCommand}"  CanExecute="Scan_CanExecute" Executed="Scan_Executed"/>
+        <CommandBinding Command="{x:Static local:MainWindow.TestCommand}"  CanExecute="Test_CanExecute" Executed="Test_Executed"/>
     </Window.CommandBindings>
 
     <DockPanel>
@@ -49,6 +50,9 @@
                 </Button>
                 <Button Command="{x:Static local:MainWindow.ScanCommand}" >
                     <Image Height="16" Source="res\start.png" Stretch="Fill" Width="16"/>
+                </Button>
+                <Button Command="{x:Static local:MainWindow.TestCommand}" >
+                    <Image Height="16" Source="res\smile.png" Stretch="Fill" Width="16"/>
                 </Button>
             </ToolBar>
         </ToolBarTray>

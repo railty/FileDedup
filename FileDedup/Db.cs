@@ -60,7 +60,7 @@ namespace fdd
             datareader = cmd.ExecuteReader();
 
             string last_md5 = "";
-            int last_size = 0;
+            long last_size = 0;
             ArrayList names = new ArrayList();
             ArrayList states = new ArrayList();
 
@@ -69,7 +69,7 @@ namespace fdd
             while (datareader.Read())
             {
                 string md5 = datareader.GetString(1);
-                int size = datareader.GetInt32(0);
+                long size = datareader.GetInt64(0);
                 string name = datareader.GetString(2);
 
                 if (last_md5 == md5 || last_md5 == "")
@@ -143,7 +143,7 @@ namespace fdd
             trans = conn.BeginTransaction();
             nTrans = 0;
         }
-        public void Delete(string name)
+        public bool Delete(string name)
         {
             SQLiteCommand cmd = conn.CreateCommand();
             name = name.Replace("'", "''");
@@ -155,7 +155,9 @@ namespace fdd
                 trans.Commit();
                 trans = conn.BeginTransaction();
                 nTrans = 0;
+                return true;
             }
+            return false;
         }
 
     }

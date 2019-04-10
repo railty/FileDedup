@@ -29,6 +29,22 @@ namespace fdd
         {
             InitializeComponent();
         }
+        public static RoutedCommand GenerateCommand = new RoutedCommand();
+        public static RoutedCommand ScanCommand = new RoutedCommand();
+        public static RoutedCommand TestCommand = new RoutedCommand();
+        private void Test_CanExecute(object sender, CanExecuteRoutedEventArgs e)
+        {
+            e.CanExecute = true;
+        }
+        private void Test_Executed(object sender, ExecutedRoutedEventArgs e)
+        {
+            string s = @"C:\Temp\sqlite.db";
+            string d = @"C:\Temp\aaa\";
+
+            RemovePath(d);
+            RemovePath(s);
+        }
+
         private void Scan_CanExecute(object sender, CanExecuteRoutedEventArgs e)
         {
             e.CanExecute = true;
@@ -70,7 +86,14 @@ namespace fdd
                 int files_cached_count = 0;
                 cal_folder(path, ref size, ref mtime, ref md5, ref folders_count, ref files_count, ref files_cached_count);
 
-                foreach (string fname in Dict.Keys) db.Delete(fname);
+                foreach (string fname in Dict.Keys)
+                {
+                    if (db.Delete(fname))
+                    {
+                        this.lblMsg.Text = $"clean up db, delete {fname}";
+                        Application.Current.Dispatcher.Invoke(System.Windows.Threading.DispatcherPriority.Background, new Action(delegate { }));
+                    }
+                }
 
                 db.Commit();
                 long mem2 = get_mem();
@@ -112,9 +135,10 @@ namespace fdd
          * in the next version should do it reverse, ie
          * seek to end, and reverse back the same way
          */
-        private string cal_file(string fname, long size)
+        private string cal_file_full(string fname)
         {
-	        MD5 md5 = new MD5CryptoServiceProvider();
+            long file_size = (new FileInfo(fname)).Length;
+            MD5 md5 = new MD5CryptoServiceProvider();
             FileStream fs = new FileStream(fname, FileMode.Open, FileAccess.Read);
             byte[] dat = new byte[BlockSize];
 
@@ -122,7 +146,30 @@ namespace fdd
             md5.TransformBlock(dat, 0, len, dat, 0);
 
             long block = 1;
-            while (block * BlockSize < size)
+            while (block * BlockSize < file_size)
+            {
+                fs.Seek(block * BlockSize, SeekOrigin.Begin);
+                len = fs.Read(dat, 0, BlockSize);
+                md5.TransformBlock(dat, 0, len, dat, 0);
+                block = block + 1;
+            }
+
+            md5.TransformFinalBlock(dat, 0, 0);
+            byte[] hash = md5.Hash;
+            return md5hex(hash);
+        }
+        private string cal_file_1pass(string fname)
+        {
+            long file_size = (new FileInfo(fname)).Length;
+            MD5 md5 = new MD5CryptoServiceProvider();
+            FileStream fs = new FileStream(fname, FileMode.Open, FileAccess.Read);
+            byte[] dat = new byte[BlockSize];
+
+            int len = fs.Read(dat, 0, BlockSize);
+            md5.TransformBlock(dat, 0, len, dat, 0);
+
+            long block = 1;
+            while (block * BlockSize < file_size)
             {
                 fs.Seek(block * BlockSize, SeekOrigin.Begin);
                 len = fs.Read(dat, 0, BlockSize);
@@ -135,14 +182,55 @@ namespace fdd
             return md5hex(hash);
         }
 
+        private string cal_file_pass2(string fname)
+        {
+            long file_size = (new FileInfo(fname)).Length;
+            long n = (long)Math.Ceiling((double)file_size / BlockSize);
+            List<long> blocks = new List<long>();
 
+            blocks.Add(0);
+            blocks.Add(n - 1);
+            long i = 1;
+            while (i < n)
+            {
+                blocks.Add(i);
+                blocks.Add(n - 1 - i);
+                i = i * 2;
+            }
+
+            long[] unique_blocks = blocks.Distinct().ToArray<long>();
+            Array.Sort(unique_blocks);
+
+            MD5 md5 = new MD5CryptoServiceProvider();
+            FileStream fs = new FileStream(fname, FileMode.Open, FileAccess.Read);
+            byte[] dat = new byte[BlockSize];
+
+            for (long block = 0; block < unique_blocks.Length; block++)
+            {
+                fs.Seek(block * BlockSize, SeekOrigin.Begin);
+                int len = fs.Read(dat, 0, BlockSize);
+                md5.TransformBlock(dat, 0, len, dat, 0);
+
+            }
+
+            md5.TransformFinalBlock(dat, 0, 0);
+            byte[] hash = md5.Hash;
+            return md5hex(hash);
+
+        }
+        private string cal_file(string fname)
+        {
+            return cal_file_pass2(fname);
+        }
         private void cal_folder(string path, ref long size, ref int mtime, ref string strHash, ref int folders_count, ref int files_count, ref int files_cached_count)
         {
             var files = Directory.EnumerateFileSystemEntries(path, "*", SearchOption.TopDirectoryOnly);
             ArrayList names = new ArrayList();
             foreach (string file in files)
             {
-                if (!Regex.Match(file, @"[A-Z]\:\\\$RECYCLE\.BIN|System Volume Information|Recovery").Success)
+                //.$signature
+                //Thumbs.db
+                if (!Regex.Match(file, @"[A-Z]\:\\\$RECYCLE\.BIN|System Volume Information|Recovery|wasteland\.fdd|Thumbs.db").Success)
                     names.Add(file);
             }
             names.Sort();
@@ -189,7 +277,7 @@ namespace fdd
                         }
                         else
                         {
-                            strHash = cal_file(p, file_size);
+                            strHash = cal_file(p);
                             db.Delete(p);
                             db.Write("f", p, file_size, file_mtime, strHash);
                         }
@@ -197,7 +285,7 @@ namespace fdd
                     }
                     else
                     {
-                        strHash = cal_file(p, file_size);
+                        strHash = cal_file(p);
                         db.Write("f", p, file_size, file_mtime, strHash);
                     }
 
@@ -267,9 +355,9 @@ namespace fdd
                             string path = (string)rb.Content;
                             string drive = Path.GetPathRoot(path);
 
-                            str = str + $"move '{path}' {drive}\\waste\\ \r\n";
+                            str = str + $"move \"{path}\" {drive}\\waste\\ \r\n";
+                            RemovePath(path);
                         }
-
                     }
                 }
             }
@@ -278,11 +366,24 @@ namespace fdd
             File.WriteAllText(@"C:\Temp\dedup.cmd", str);
         }
 
+        string WasteFolder = @":\wasteland.fdd";
+        private void RemovePath(string path)
+        {
+            string dest = path.Replace(":", WasteFolder);
+            Match m = Regex.Match(dest, @"(.*)\\(.*)$");
+            string folder = m.Groups[1].Value;
+            if (!Directory.Exists(folder)) Directory.CreateDirectory(folder);
 
-        public static RoutedCommand GenerateCommand = new RoutedCommand();
-        public static RoutedCommand ScanCommand = new RoutedCommand();
-
-
+            FileInfo fi = new FileInfo(path);
+            if ((fi.Attributes & FileAttributes.Directory) == FileAttributes.Directory)
+            {
+                Directory.Move(path, dest);
+            }
+            else
+            {
+                File.Move(path, dest);
+            }
+        }
         private void Refresh_CanExecute(object sender, CanExecuteRoutedEventArgs e)
         {
             e.CanExecute = true;
@@ -299,7 +400,7 @@ namespace fdd
                 object[] os = (object[])groups[k];
 
                 string md5 = (string)os[0];
-                int size = (int)os[1];
+                long size = (long)os[1];
                 object[] names = (object[])os[2];
                 object[] states = (object[])os[3];
 
@@ -311,8 +412,7 @@ namespace fdd
                     strFs = strFs + $@"<RadioButton Content=""{name}"" />";
                 }
                     
-
-                strGroups = strGroups + $@"<GroupBox Header =""{md5}""><StackPanel>{strFs}</StackPanel></GroupBox>";
+                strGroups = strGroups + $@"<GroupBox Header =""{ToMB(size)}""><StackPanel>{strFs}</StackPanel></GroupBox>";
             }
             string strPanel = $@"<StackPanel xmlns=""http://schemas.microsoft.com/winfx/2006/xaml/presentation"" xmlns:x=""http://schemas.microsoft.com/winfx/2006/xaml"" > {strGroups} </StackPanel>";
             StackPanel stackPanel = (StackPanel)XamlReader.Parse(strPanel);
