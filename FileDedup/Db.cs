@@ -159,6 +159,16 @@ namespace fdd
             }
             return false;
         }
+        public bool DeleteFolder(string name)
+        {
+            SQLiteCommand cmd = conn.CreateCommand();
+            name = name.Replace("'", "''");
+            cmd.CommandText = $"delete from files where name like '{name}%';";
+            cmd.ExecuteNonQuery();
+            trans.Commit();
+            trans = conn.BeginTransaction();
+            return true;
+        }
 
     }
 }

@@ -364,38 +364,40 @@ namespace fdd
 
             this.cmds.Text = str;
             File.WriteAllText(@"C:\Temp\dedup.cmd", str);
+
+            ShowTop(10);
         }
 
         string WasteFolder = @":\wasteland.fdd";
         private void RemovePath(string path)
         {
-            string dest = path.Replace(":", WasteFolder);
-            Match m = Regex.Match(dest, @"(.*)\\(.*)$");
-            string folder = m.Groups[1].Value;
-            if (!Directory.Exists(folder)) Directory.CreateDirectory(folder);
+            if (Directory.Exists(path))
+            {
+                string dest = path.Replace(":", WasteFolder);
+                Match m = Regex.Match(dest, @"(.*)\\(.*)$");
+                string folder = m.Groups[1].Value;
+                if (!Directory.Exists(folder)) Directory.CreateDirectory(folder);
 
-            FileInfo fi = new FileInfo(path);
-            if ((fi.Attributes & FileAttributes.Directory) == FileAttributes.Directory)
-            {
-                Directory.Move(path, dest);
+                FileInfo fi = new FileInfo(path);
+                if ((fi.Attributes & FileAttributes.Directory) == FileAttributes.Directory)
+                    Directory.Move(path, dest);
+                else
+                    File.Move(path, dest);
             }
-            else
-            {
-                File.Move(path, dest);
-            }
+            db.DeleteFolder(path);
         }
         private void Refresh_CanExecute(object sender, CanExecuteRoutedEventArgs e)
         {
             e.CanExecute = true;
         }
 
-        private void Refresh_Executed(object sender, ExecutedRoutedEventArgs e)
-        {
-            ArrayList groups = db.top(10);
 
+        private void ShowTop(int n)
+        {
+            ArrayList groups = db.top(n);
             string strGroups = "";
 
-            for (int k=0; k<groups.Count; k++)
+            for (int k = 0; k < groups.Count; k++)
             {
                 object[] os = (object[])groups[k];
 
@@ -411,12 +413,17 @@ namespace fdd
                     name = name.Replace("&", "&amp;");
                     strFs = strFs + $@"<RadioButton Content=""{name}"" />";
                 }
-                    
+
                 strGroups = strGroups + $@"<GroupBox Header =""{ToMB(size)}""><StackPanel>{strFs}</StackPanel></GroupBox>";
             }
             string strPanel = $@"<StackPanel xmlns=""http://schemas.microsoft.com/winfx/2006/xaml/presentation"" xmlns:x=""http://schemas.microsoft.com/winfx/2006/xaml"" > {strGroups} </StackPanel>";
             StackPanel stackPanel = (StackPanel)XamlReader.Parse(strPanel);
             this.groups.Content = stackPanel;
+
+        }
+        private void Refresh_Executed(object sender, ExecutedRoutedEventArgs e)
+        {
+            ShowTop(10);
         }
 
         Db db;
