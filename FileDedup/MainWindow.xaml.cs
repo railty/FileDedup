@@ -38,11 +38,22 @@ namespace fdd
         }
         private void Test_Executed(object sender, ExecutedRoutedEventArgs e)
         {
-            string s = @"C:\Temp\sqlite.db";
-            string d = @"C:\Temp\aaa\";
+            Rule rule = new Rule(@"E:\");
+            ArrayList dups = db.top(0);
+            for (int i = 0; i < dups.Count; i++)
+            {
+                object[] dup = (object[])dups[i];
+                object[] files = (object[])dup[2];
 
-            RemovePath(d);
-            RemovePath(s);
+                string[] FilesToRemove = rule.filter(files);
+                if (FilesToRemove != null)
+                {
+                    for (int k = 0; k < FilesToRemove.Length; k++)
+                    {
+                        RemovePath(FilesToRemove[k]);
+                    }
+                }
+            }
         }
 
         private void Scan_CanExecute(object sender, CanExecuteRoutedEventArgs e)
@@ -438,12 +449,3 @@ namespace fdd
         }
     }
 }
-/*
-1. delete signature from d:\data\sning\books\operator
-and it should match d:\data\sning\operators
-2. rescan and delete from db
-3. move to waste.fdd
-    double quote
-    move sub folder
-
-    */

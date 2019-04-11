@@ -56,7 +56,12 @@ namespace fdd
 
             SQLiteDataReader datareader;
             SQLiteCommand cmd = conn.CreateCommand();
-            cmd.CommandText = $"select size, md5, name from files where md5 in (SELECT md5 FROM files group by md5 having count(*)>1 order by size desc limit {n}) order by size desc, md5, name;";
+
+            string limit = "";
+            if (n>0) limit = $"limit {n}";
+
+            cmd.CommandText = $"select size, md5, name from files where md5 in (SELECT md5 FROM files group by md5 having count(*)>1 order by size desc {limit} ) order by size desc, md5, name;";
+
             datareader = cmd.ExecuteReader();
 
             string last_md5 = "";
