@@ -38,22 +38,36 @@ namespace fdd
         }
         private void Test_Executed(object sender, ExecutedRoutedEventArgs e)
         {
-            Rule rule = new Rule(@"E:\");
-            ArrayList dups = db.top(0);
-            for (int i = 0; i < dups.Count; i++)
+            List<Rule> rules = new List<Rule>();
+            rules.Add(new Rule(@"E:\", @"D:\"));
+            rules.Add(new Rule(@"E:\", @"C:\"));
+            rules.Add(new Rule(@"D:\", @"C:\"));
+
+            int n = 0;
+            ArrayList dups = db.top(n);
+            for (int iDup = 0; iDup < dups.Count; iDup++)
             {
-                object[] dup = (object[])dups[i];
+                object[] dup = (object[])dups[iDup];
                 object[] files = (object[])dup[2];
 
-                string[] FilesToRemove = rule.filter(files);
-                if (FilesToRemove != null)
+                for (int iRule = 0; iRule < rules.Count; iRule++)
                 {
-                    for (int k = 0; k < FilesToRemove.Length; k++)
+                    string FileToKeep = "";
+                    string[] FilesToRemove = rules[iRule].filter(files, ref FileToKeep);
+                    if (FilesToRemove != null)
                     {
-                        RemovePath(FilesToRemove[k]);
+                        for (int iFiles = 0; iFiles < FilesToRemove.Length; iFiles++)
+                        {
+                            //Debug.WriteLine($"fc /b '{FilesToRemove[iFiles]}' '{FileToKeep}'");
+                            RemovePath(FilesToRemove[iFiles]);
+
+                            this.lblMsg.Text = $"Removing {FilesToRemove[iFiles]}";
+                            Application.Current.Dispatcher.Invoke(System.Windows.Threading.DispatcherPriority.Background, new Action(delegate { }));
+                        }
                     }
                 }
             }
+            this.lblMsg.Text = $"Removed top {n} duplicates";
         }
 
         private void Scan_CanExecute(object sender, CanExecuteRoutedEventArgs e)
@@ -196,6 +210,10 @@ namespace fdd
         private string cal_file_pass2(string fname)
         {
             long file_size = (new FileInfo(fname)).Length;
+            if (file_size == 0) {
+                Debug.WriteLine("Warning: file size is 0");
+                return "";
+            }
             long n = (long)Math.Ceiling((double)file_size / BlockSize);
             List<long> blocks = new List<long>();
 
@@ -218,10 +236,9 @@ namespace fdd
 
             for (long block = 0; block < unique_blocks.Length; block++)
             {
-                fs.Seek(block * BlockSize, SeekOrigin.Begin);
+                fs.Seek(unique_blocks[block] * BlockSize, SeekOrigin.Begin);
                 int len = fs.Read(dat, 0, BlockSize);
                 md5.TransformBlock(dat, 0, len, dat, 0);
-
             }
 
             md5.TransformFinalBlock(dat, 0, 0);
@@ -276,34 +293,37 @@ namespace fdd
                 else
                 {
                     long file_size = fi.Length;
-                    strHash = "";
-                    int file_mtime = (int)(fi.LastWriteTimeUtc - epoch).TotalSeconds;
-
-                    if (Dict.ContainsKey(p))
+                    if (file_size > 0)
                     {
-                        if ((long)Dict[p][0] == file_size && (int)Dict[p][1] == file_mtime)
+                        strHash = "";
+                        int file_mtime = (int)(fi.LastWriteTimeUtc - epoch).TotalSeconds;
+
+                        if (Dict.ContainsKey(p))
                         {
-                            strHash = (string)Dict[p][2];
-                            files_cached_count++;
+                            if ((long)Dict[p][0] == file_size && (int)Dict[p][1] == file_mtime)
+                            {
+                                strHash = (string)Dict[p][2];
+                                files_cached_count++;
+                            }
+                            else
+                            {
+                                strHash = cal_file(p);
+                                db.Delete(p);
+                                db.Write("f", p, file_size, file_mtime, strHash);
+                            }
+                            Dict.Remove(p);
                         }
                         else
                         {
                             strHash = cal_file(p);
-                            db.Delete(p);
                             db.Write("f", p, file_size, file_mtime, strHash);
                         }
-                        Dict.Remove(p);
-                    }
-                    else
-                    {
-                        strHash = cal_file(p);
-                        db.Write("f", p, file_size, file_mtime, strHash);
-                    }
 
-                    size = size + file_size;
-                    byte[] bytesHash = Encoding.ASCII.GetBytes(strHash);
-                    md5.TransformBlock(bytesHash, 0, bytesHash.Length, bytesHash, 0);
-                    files_count++;
+                        size = size + file_size;
+                        byte[] bytesHash = Encoding.ASCII.GetBytes(strHash);
+                        md5.TransformBlock(bytesHash, 0, bytesHash.Length, bytesHash, 0);
+                        files_count++;
+                    }
                 }
             }
             byte[] bytes = new byte[0];

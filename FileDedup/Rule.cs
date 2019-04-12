@@ -8,41 +8,47 @@ namespace fdd
 {
     class Rule
     {
-        string PriorityPath;
-        public Rule(string PriorityPath)
+        string hi;
+        string low;
+        public Rule(string hi, string low)
         {
-            this.PriorityPath = PriorityPath;
+            this.low = low;
+            this.hi = hi;
         }
 
-        public string[] filter(object[] files)
+        public string[] filter(object[] files, ref string hi_file)
         {
-            bool HasPriorityPath = false;
-            bool HasNonPriorityPath = false;
+            bool HasHiPath = false;
+            bool HasLowPath = false;
             for (int i = 0; i < files.Length; i++)
             {
                 string f = (string)files[i];
-                if (f.StartsWith(PriorityPath))
+                if (f.StartsWith(hi))
                 {
-                    HasPriorityPath = true;
+                    HasHiPath = true;
                 }
                 else
                 {
-                    HasNonPriorityPath = true;
+                    HasLowPath = true;
                 }
             }
 
-            if (HasPriorityPath && HasNonPriorityPath)
+            if (HasHiPath && HasLowPath)
             {
-                List<string> NonPriorityFiles = new List<string>();
+                List<string> LowFiles = new List<string>();
                 for (int i = 0; i < files.Length; i++)
                 {
                     string f = (string)files[i];
-                    if (!f.StartsWith(PriorityPath))
+                    if (f.StartsWith(low))
                     {
-                        NonPriorityFiles.Add(f);
+                        LowFiles.Add(f);
+                    }
+                    if (f.StartsWith(hi))
+                    {
+                        hi_file = f;
                     }
                 }
-                return NonPriorityFiles.ToArray();
+                return LowFiles.ToArray();
             }
             return null;
         }
