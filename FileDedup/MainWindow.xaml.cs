@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.IO.Compression;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -14,9 +15,9 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Markup;
-using System.Security.Cryptography;
 using System.Diagnostics;
 using System.Text.RegularExpressions;
+using System.Security.Cryptography;
 
 namespace fdd
 {
@@ -25,6 +26,8 @@ namespace fdd
     /// </summary>
     public partial class MainWindow : Window
     {
+
+        private Doc doc = new Doc();
         public MainWindow()
         {
             InitializeComponent();
@@ -37,6 +40,9 @@ namespace fdd
             e.CanExecute = true;
         }
         private void Test_Executed(object sender, ExecutedRoutedEventArgs e)
+        {
+        }
+        private void Test_Executed2(object sender, ExecutedRoutedEventArgs e)
         {
             List<Rule> rules = new List<Rule>();
             rules.Add(new Rule(@"E:\", @"D:\"));
@@ -138,118 +144,10 @@ namespace fdd
         }
 
         Dictionary<string, object[]> Dict;
-        int BlockSize = 16 * 512;
 
-        private string md5hex(byte[] hash)
-        {
-            StringBuilder sBuilder = new StringBuilder();
-            for (int i = 0; i < hash.Length; i++)
-            {
-                sBuilder.Append(hash[i].ToString("x2"));
-            }
-
-            // Return the hexadecimal string.
-            return sBuilder.ToString();
-        }
 
         DateTime epoch = new DateTime(1970, 1, 1);
 
-        /*
-         * read 0
-         * read 1 2 4 8 ... until over the size
-         * in the next version should do it reverse, ie
-         * seek to end, and reverse back the same way
-         */
-        private string cal_file_full(string fname)
-        {
-            long file_size = (new FileInfo(fname)).Length;
-            MD5 md5 = new MD5CryptoServiceProvider();
-            FileStream fs = new FileStream(fname, FileMode.Open, FileAccess.Read);
-            byte[] dat = new byte[BlockSize];
-
-            int len = fs.Read(dat, 0, BlockSize);
-            md5.TransformBlock(dat, 0, len, dat, 0);
-
-            long block = 1;
-            while (block * BlockSize < file_size)
-            {
-                fs.Seek(block * BlockSize, SeekOrigin.Begin);
-                len = fs.Read(dat, 0, BlockSize);
-                md5.TransformBlock(dat, 0, len, dat, 0);
-                block = block + 1;
-            }
-
-            md5.TransformFinalBlock(dat, 0, 0);
-            byte[] hash = md5.Hash;
-            return md5hex(hash);
-        }
-        private string cal_file_1pass(string fname)
-        {
-            long file_size = (new FileInfo(fname)).Length;
-            MD5 md5 = new MD5CryptoServiceProvider();
-            FileStream fs = new FileStream(fname, FileMode.Open, FileAccess.Read);
-            byte[] dat = new byte[BlockSize];
-
-            int len = fs.Read(dat, 0, BlockSize);
-            md5.TransformBlock(dat, 0, len, dat, 0);
-
-            long block = 1;
-            while (block * BlockSize < file_size)
-            {
-                fs.Seek(block * BlockSize, SeekOrigin.Begin);
-                len = fs.Read(dat, 0, BlockSize);
-                md5.TransformBlock(dat, 0, len, dat, 0);
-                block = block * 2;
-            }
-
-            md5.TransformFinalBlock(dat, 0, 0);
-            byte[] hash = md5.Hash;
-            return md5hex(hash);
-        }
-
-        private string cal_file_pass2(string fname)
-        {
-            long file_size = (new FileInfo(fname)).Length;
-            if (file_size == 0) {
-                Debug.WriteLine("Warning: file size is 0");
-                return "";
-            }
-            long n = (long)Math.Ceiling((double)file_size / BlockSize);
-            List<long> blocks = new List<long>();
-
-            blocks.Add(0);
-            blocks.Add(n - 1);
-            long i = 1;
-            while (i < n)
-            {
-                blocks.Add(i);
-                blocks.Add(n - 1 - i);
-                i = i * 2;
-            }
-
-            long[] unique_blocks = blocks.Distinct().ToArray<long>();
-            Array.Sort(unique_blocks);
-
-            MD5 md5 = new MD5CryptoServiceProvider();
-            FileStream fs = new FileStream(fname, FileMode.Open, FileAccess.Read);
-            byte[] dat = new byte[BlockSize];
-
-            for (long block = 0; block < unique_blocks.Length; block++)
-            {
-                fs.Seek(unique_blocks[block] * BlockSize, SeekOrigin.Begin);
-                int len = fs.Read(dat, 0, BlockSize);
-                md5.TransformBlock(dat, 0, len, dat, 0);
-            }
-
-            md5.TransformFinalBlock(dat, 0, 0);
-            byte[] hash = md5.Hash;
-            return md5hex(hash);
-
-        }
-        private string cal_file(string fname)
-        {
-            return cal_file_pass2(fname);
-        }
         private void cal_folder(string path, ref long size, ref int mtime, ref string strHash, ref int folders_count, ref int files_count, ref int files_cached_count)
         {
             var files = Directory.EnumerateFileSystemEntries(path, "*", SearchOption.TopDirectoryOnly);
@@ -307,7 +205,7 @@ namespace fdd
                             }
                             else
                             {
-                                strHash = cal_file(p);
+                                strHash = doc.cal_file(p);
                                 db.Delete(p);
                                 db.Write("f", p, file_size, file_mtime, strHash);
                             }
@@ -315,7 +213,7 @@ namespace fdd
                         }
                         else
                         {
-                            strHash = cal_file(p);
+                            strHash = doc.cal_file(p);
                             db.Write("f", p, file_size, file_mtime, strHash);
                         }
 
@@ -328,7 +226,7 @@ namespace fdd
             }
             byte[] bytes = new byte[0];
             md5.TransformFinalBlock(bytes, 0, 0);
-            strHash = md5hex(md5.Hash);
+            strHash = doc.md5hex(md5.Hash);
 
             mtime = (int)((new FileInfo(path)).LastWriteTimeUtc - epoch).TotalSeconds;
 

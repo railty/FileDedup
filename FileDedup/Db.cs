@@ -9,7 +9,7 @@ using System.Collections;
 
 namespace fdd
 {
-    class Db
+    public class Db
     {
         int nTrans;
         const int commit_block = 1024;
