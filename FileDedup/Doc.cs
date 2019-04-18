@@ -9,7 +9,37 @@ namespace fdd
 {
     public class Doc
     {
-        int BlockSize = 16 * 512;
+        private int BlockSize = 16 * 512;
+        private DateTime epoch = new DateTime(1970, 1, 1);
+
+        protected string name;
+        protected long size;
+        protected int mtime;
+        protected string hash;
+        
+        public Doc(string path)
+        {
+            this.name = path;
+
+            hash = cal_hash(path);
+        }
+
+        public string Name
+        {
+            get { return this.name; }
+        }
+        public long Size
+        {
+            get { return this.size; }
+        }
+        public long MTime
+        {
+            get { return this.mtime; }
+        }
+        public string Hash
+        {
+            get { return this.hash; }
+        }
 
         /*read everything*/
         private string full_pass(string fname, long file_size)
@@ -98,17 +128,23 @@ namespace fdd
             return md5hex(hash);
 
         }
-        public string cal_file(string fname, int option=2)
+        protected virtual string cal_hash(string path, int option=2)
         {
-            long file_size = (new FileInfo(fname)).Length;
-            if (file_size == 0) return "";
+            FileInfo fi = new FileInfo(path);
+            size = fi.Length;
+            mtime = (int)(fi.LastWriteTimeUtc - epoch).TotalSeconds;
 
-            if (option == 1) return one_pass(fname, file_size);
-            if (option == 2) return two_pass(fname, file_size);
-            return full_pass(fname, file_size);
+            if (size == 0) hash = "";
+            else
+            {
+                if (option == 1) hash = one_pass(path, size);
+                else if (option == 2) hash = two_pass(path, size);
+                else hash = full_pass(path, size);
+            }
+            return hash;
         }
 
-        public string md5hex(byte[] hash)
+        public static string md5hex(byte[] hash)
         {
             StringBuilder sBuilder = new StringBuilder();
             for (int i = 0; i < hash.Length; i++)

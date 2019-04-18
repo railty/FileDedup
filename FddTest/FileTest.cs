@@ -77,20 +77,20 @@ namespace fdd
             try
             {
                 SetupFixture();
-                Doc doc = new Doc();
                 string hash;
 
-                hash = doc.cal_file(fSmall);
+                hash = (new Doc(fSmall)).Hash;
                 output.WriteLine($"small hash = {hash}");
                 Assert.Equal(hash, hashSmall);
 
-                hash = doc.cal_file(fBig);
+                hash = (new Doc(fBig)).Hash;
                 output.WriteLine($"big hash = {hash}");
                 Assert.Equal(hash, hashBig);
 
-                hash = doc.cal_file(fHuge);
+                hash = (new Doc(fHuge)).Hash;
                 output.WriteLine($"huge hash = {hash}");
                 Assert.Equal(hash, hashHuge);
+
             }
             finally
             {
@@ -105,24 +105,22 @@ namespace fdd
             try
             {
                 SetupFixture();
-                Folder fd = new Folder();
+                string x = Directory.GetCurrentDirectory();
+                output.WriteLine($"curr = {x}");
+                output.WriteLine($@"folder = {dataPath}\folder1");
 
-                string strHash = "";
-                long file_size = 0;
-                int mtime = 0;
-                int folders_count = 0;
-                int files_count = 0;
-                int files_cached_count = 0;
-
-                fd.cal_folder($@"{dataPath}\folder1", ref file_size, ref mtime, ref strHash, ref folders_count, ref files_count, ref files_cached_count);
-                output.WriteLine($"folder1 hash = {strHash}");
+                Folder fd = new Folder($@"{dataPath}\folder1");
+                string strHash = fd.Hash;
+                output.WriteLine($"folder1 hash = {fd.Hash}");
                 Assert.Equal("ffc876d8e9536f8e67decd38ceb2fcd3", strHash);
 
-                fd.cal_folder($@"{dataPath}\folder2", ref file_size, ref mtime, ref strHash, ref folders_count, ref files_count, ref files_cached_count);
+                fd = new Folder($@"{dataPath}\folder2");
+                strHash = fd.Hash;
                 output.WriteLine($"folder2 hash = {strHash}");
                 Assert.Equal("5edad417092e0513f558183db7ce5dd3", strHash);
 
-                fd.cal_folder($@"{dataPath}\folder3", ref file_size, ref mtime, ref strHash, ref folders_count, ref files_count, ref files_cached_count);
+                fd = new Folder($@"{dataPath}\folder3");
+                strHash = fd.Hash;
                 output.WriteLine($"folder3 hash = {strHash}");
                 Assert.Equal("2d178bb45f756f3765b188ce3a396341", strHash);
             }
@@ -134,3 +132,4 @@ namespace fdd
 
     }
 }
+ 

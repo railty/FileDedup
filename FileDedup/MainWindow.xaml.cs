@@ -27,7 +27,6 @@ namespace fdd
     public partial class MainWindow : Window
     {
 
-        private Doc doc = new Doc();
         public MainWindow()
         {
             InitializeComponent();
@@ -205,7 +204,7 @@ namespace fdd
                             }
                             else
                             {
-                                strHash = doc.cal_file(p);
+                                strHash = (new Doc(p)).Hash;
                                 db.Delete(p);
                                 db.Write("f", p, file_size, file_mtime, strHash);
                             }
@@ -213,7 +212,7 @@ namespace fdd
                         }
                         else
                         {
-                            strHash = doc.cal_file(p);
+                            strHash = (new Doc(p)).Hash;
                             db.Write("f", p, file_size, file_mtime, strHash);
                         }
 
@@ -226,7 +225,7 @@ namespace fdd
             }
             byte[] bytes = new byte[0];
             md5.TransformFinalBlock(bytes, 0, 0);
-            strHash = doc.md5hex(md5.Hash);
+            strHash = Doc.md5hex(md5.Hash);
 
             mtime = (int)((new FileInfo(path)).LastWriteTimeUtc - epoch).TotalSeconds;
 

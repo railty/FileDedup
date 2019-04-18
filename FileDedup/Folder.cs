@@ -9,20 +9,29 @@ using System.Security.Cryptography;
 
 namespace fdd
 {
-    public class Folder
+    public class Folder : Doc
     {
-        private DateTime epoch = new DateTime(1970, 1, 1);
-        public string[] filters;
-        Doc doc = new Doc();
-        public Folder(string[] filters=null)
+        private int folders_count;
+        private int files_count;
+        public int Folders
         {
-            if (filters == null) filters = new string[]{@"$RECYCLE\.BIN", "System Volume Information", "Recovery", "Thumbs.db", @"wasteland\.fdd" };
-            this.filters = filters;
+            get { return this.folders_count; }
+        }
+        public int Files
+        {
+            get { return this.files_count; }
         }
 
-        public void cal_folder(string path, ref long size, ref int mtime, ref string strHash, ref int folders_count, ref int files_count, ref int files_cached_count)
+        public Folder(string path) : base(path)
         {
+        }
 
+        private DateTime epoch = new DateTime(1970, 1, 1);
+        public string[] filters;
+
+        protected override string cal_hash(string path, int option = 2)
+        {
+            string[] filters = new string[] { @"$RECYCLE\.BIN", "System Volume Information", "Recovery", "Thumbs.db", @"wasteland\.fdd" };
             string filter = String.Join("|", filters);
 
             var files = Directory.EnumerateFileSystemEntries(path, "*", SearchOption.TopDirectoryOnly);
@@ -41,22 +50,14 @@ namespace fdd
 
                 if (fi.Attributes.HasFlag(FileAttributes.Directory))
                 {
-                    string folder_md5 = "";
-                    long folder_size = 0;
-                    int folder_mtime = 0;
+                    Folder fd = new Folder(p);
 
-                    int sub_folders_count = 0;
-                    int sub_files_count = 0;
-                    int sub_files_cached = 0;
+                    folders_count += fd.Folders;
+                    files_count += fd.Files;
 
-                    cal_folder(p, ref folder_size, ref folder_mtime, ref folder_md5, ref sub_folders_count, ref sub_files_count, ref sub_files_cached);
-                    folders_count += sub_folders_count;
-                    files_count += sub_files_count;
-                    files_cached_count += sub_files_cached;
-
-                    size = size + folder_size;
-                    byte[] folder_md5_bytes = Encoding.ASCII.GetBytes(folder_md5);
-                    md5.TransformBlock(folder_md5_bytes, 0, folder_md5_bytes.Length, folder_md5_bytes, 0);
+                    size = size + fd.Size;
+                    byte[] hash_bytes = Encoding.ASCII.GetBytes(fd.Hash);
+                    md5.TransformBlock(hash_bytes, 0, hash_bytes.Length, hash_bytes, 0);
 
                     folders_count++;
                 }
@@ -65,23 +66,18 @@ namespace fdd
                     long file_size = fi.Length;
                     if (file_size > 0)
                     {
-                        strHash = "";
-                        int file_mtime = (int)(fi.LastWriteTimeUtc - epoch).TotalSeconds;
-
-                        strHash = doc.cal_file(p);
-
+                        Doc doc = new Doc(p);
                         size = size + file_size;
-                        byte[] bytesHash = Encoding.ASCII.GetBytes(strHash);
-                        md5.TransformBlock(bytesHash, 0, bytesHash.Length, bytesHash, 0);
+                        byte[] hash_bytes = Encoding.ASCII.GetBytes(doc.Hash);
+                        md5.TransformBlock(hash_bytes, 0, hash_bytes.Length, hash_bytes, 0);
                         files_count++;
                     }
                 }
             }
             byte[] bytes = new byte[0];
             md5.TransformFinalBlock(bytes, 0, 0);
-            strHash = doc.md5hex(md5.Hash);
-
-            mtime = (int)((new FileInfo(path)).LastWriteTimeUtc - epoch).TotalSeconds;
+            hash = Doc.md5hex(md5.Hash);
+            return hash;
         }
     }
 }
