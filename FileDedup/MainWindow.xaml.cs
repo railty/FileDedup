@@ -40,6 +40,8 @@ namespace fdd
         }
         private void Test_Executed(object sender, ExecutedRoutedEventArgs e)
         {
+            var logger = NLog.LogManager.GetCurrentClassLogger();
+            logger.Info("Hello World");
         }
         private void Test_Executed2(object sender, ExecutedRoutedEventArgs e)
         {
